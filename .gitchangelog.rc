@@ -1,0 +1,313 @@
+# -*- coding: utf-8; mode: python -*-
+
+## Upstream Tool URL: https://github.com/vaab/gitchangelog
+
+## NOTE: The CHANGELOG.rst file is generated from this file by running
+##       ``gitchangelog``.  To do this, you need to install gitchangelog
+##       (``pip install gitchangelog``) and install python-slugify
+##       (``pip install python-slugify``) for the anchor generation to work.
+##
+##       Annoyingly but flexibly, this file is also a valid python script,
+##       imported by the gitchangelog script.  This means you can do some
+##       very silly things.  Please don't.
+##
+## NOTE: The upstream project may be dead now.  This is unfortunate, and
+##       may result in things not working when python gets updated.
+
+project_url = "https://it.github.gatech.edu/CoC-TSO/wosa-connector"
+
+##
+## ``ignore_regexps`` is a line of regexps
+##
+## Any commit having its full commit message matching any regexp listed here
+## will be ignored and won't be reported in the changelog.
+##
+ignore_regexps = [
+    r'@minor', r'!minor',
+    r'@cosmetic', r'!cosmetic',
+    r'@refactor', r'!refactor',
+    r'@wip', r'!wip',
+    r'^([cC]hg|[fF]ix|[nN]ew)\s*:\s*[p|P]kg:',
+    r'^([cC]hg|[fF]ix|[nN]ew)\s*:\s*[d|D]ev:',
+    r'^(.{3,3}\s*:)?\s*([fF]irst|[iI]nitial) (commit|file).?\s*$',
+    r'forgot.*[cC]hangelog',
+    r'([pP][eE][pP]8|[pP][eE][pP] 8)',
+    r'^(🔖 )?Bump [vV]ersion',
+    r'^TODO.*$',
+    r'^Revert "🚑️.*$',
+    r'^$',  ## ignore commits with empty messages
+]
+
+
+## ``section_regexps`` is a list of 2-tuples associating a string label and a
+## list of regexp
+##
+## Commit messages will be classified in sections thanks to this. Section
+## titles are the label, and a commit is classified under this section if any
+## of the regexps associated is matching.
+section_regexps = [
+    ('💥 Breaking Changes', [
+        r'^.{0,4}(💥|[bB]reak)',
+     ]),
+    ('✨ New', [
+        r'^(✨|.{0,4}([aA]dd|[nN]ew|[eE]xample|[sS]keleton|[iI]mplement|[cC]reate))',
+     ]),
+    ('🚚 Changes', [
+        r'^.{0,4}(🚚|➖|[uU]pdate|[eE]nhance|[eE]nchance|[rR]efactor|[rR]ename|[rR]emove|[mM]ove|[aA]djust|[cC]onvert|[cC]onsolidate)',
+     ]),
+    ('🐛 Bugs', [
+        r'^(🐛|^.{0,4}[fF]ix|^.{0,2}[bB]ug)',
+     ]),
+
+    ('🚑️ Hotfixes', [
+        r'^🚑️',
+     ]),
+
+    ('🎉 Other', None ## Match all lines
+     ),
+
+]
+
+
+## ``body_process`` is a callable
+##
+## This callable will be given the original body and result will
+## be used in the changelog.
+class FakeBody:
+    def split(*args, **kwargs):
+        pass
+
+def body_process(*args, **kwargs):
+    """Don't send the body to the changelog."""
+    return None
+
+## ``subject_process`` is a callable
+##
+## This callable will be given the original subject and result will
+## be used in the changelog.
+##
+## Available constructs are those listed in ``body_process`` doc.
+@TextProc
+def strip_star(msg):
+    """Remove leading stars from the subject."""
+    if len(msg) > 1 and msg[0] == '*':
+        return msg[1:].strip()
+    return msg
+
+subject_process = (strip | strip_star |
+    ReSub(r'^([cC]hg|[fF]ix|[nN]ew)\s*:\s*((dev|use?r|pkg|test|doc)\s*:\s*)?([^\n@]*)(@[a-z]+\s+)*$', r'\4') |
+    SetIfEmpty("No commit message.") | ucfirst | final_dot)
+
+
+## ``tag_filter_regexp`` is a regexp
+##
+## Tags that will be used for the changelog must match this regexp.
+##
+tag_filter_regexp = r'^v[0-9]+\.[0-9]+(\.[0-9]+)?$'
+
+
+## ``unreleased_version_label`` is a string or a callable that outputs a string
+##
+## This label will be used as the changelog Title of the last set of changes
+## between last valid tag and HEAD if any.
+unreleased_version_label = "(unreleased)"
+
+
+## ``output_engine`` is a callable
+## Start with internal rest_py and fix it up here...
+# output_engine = rest_py
+
+def indent(text, chars="  ", first=None):
+    r"""Return text string indented with the given chars.
+
+    >>> string = 'This is first line.\\nThis is second line.\\n'
+    >>> print(indent(string, chars="| "))  # doctest: +NORMALIZE_WHITESPACE
+    | This is first line.
+    | This is second line.
+    |
+    >>> print(indent(string, first="- "))  # doctest: +NORMALIZE_WHITESPACE
+    - This is first line.
+      This is second line.
+    >>> string = 'This is first line.\\n\\nThis is second line.'
+    >>> print(indent(string, first="- "))  # doctest: +NORMALIZE_WHITESPACE
+    - This is first line.
+    <BLANKLINE>
+      This is second line.
+    """
+    if first:
+        first_line = text.split("\n")[0]
+        rest = '\n'.join(text.split("\n")[1:])
+        return '\n'.join([(first + first_line).rstrip(),
+                          indent(rest, chars=chars)])
+    return '\n'.join([(chars + line).rstrip()
+                      for line in text.split('\n')])
+
+
+def output_engine(data, opts={}):
+    """Returns ReStructured Text changelog content from data"""
+
+    def rest_title(label, char="="):
+        return (label.strip() + "\n") + (char * len(bytes(label, 'utf-8')) + "\n")
+
+    def render_version(version):
+        from slugify import slugify  # for slugifying explicit anchors
+        title = "🚀 %s (%s)" % (version["tag"], version["date"]) \
+                if version["tag"] else \
+                opts["unreleased_version_label"]
+        s = rest_title(title, char="-")
+
+        sections = version["sections"]
+        nb_sections = len(sections)
+        for section in sections:
+
+            section_label = section["label"] if section.get("label", None) \
+                            else "Other"
+
+            # This is where is add an explicit anchor to appease the checker
+            # https://stackoverflow.com/questions/39717529/duplicate-implicit-target-name-how-to-use-a-subtitle-name-more-than-once
+            # anchor_postfix = version["tag"]
+            # if anchor_postfix is None:
+            #     anchor_postfix = title
+            # s += "\n" + ".. _%s:\n" % slugify(section_label + '_' + anchor_postfix, separator='_')
+
+            if not (section_label == "Other" and nb_sections == 1):
+                if version["tag"] is not None:  # Here we make sections unique
+                    section_label += ' in ' + version["tag"]
+                s += "\n" + rest_title(section_label, "~") + "\n"
+
+            for commit in section["commits"]:
+                s += render_commit(commit)
+        return s
+
+    def render_commit(commit, opts=opts):
+        # import textwrap
+
+        subject = commit["subject"]
+        subject += " [%s]" % (", ".join(commit["authors"]), )
+        # Append commit hash link
+        subject += " `" + commit["commit"].sha1_short + " <" + project_url + "/commit/" + commit["commit"].sha1 + ">`_"
+        # subject += " " + commit["commit"].sha1_short
+
+        # entry = indent('\n'.join(textwrap.wrap(subject)),
+        #                first="- ").strip() + "\n"
+
+        # Don't wrap the subject, just indent it
+        entry = indent(subject, first="- ").strip() + "\n"
+
+        if commit["body"]:  # TODO: extract trailers from body an format links
+            entry += "\n" + indent(commit["body"])
+            entry += "\n"
+
+        return entry
+
+    if data["title"]:
+        yield rest_title(data["title"], char="=") + "\n\n"
+    else:
+        # This is probably a hack, but the title isn't showing up in the dict
+        yield rest_title("💫 Changelog", char="=") + "\n\n"
+
+    for version in data["versions"]:
+        if len(version["sections"]) > 0:
+            yield render_version(version) + "\n\n"
+
+
+## ``include_merge`` is a boolean
+##
+## This option tells git-log whether to include merge commits in the log.
+## The default is to include them.
+include_merge = False
+
+
+## ``log_encoding`` is a string identifier
+##
+## This option tells gitchangelog what encoding is outputed by ``git log``.
+## The default is to be clever about it: it checks ``git config`` for
+## ``i18n.logOutputEncoding``, and if not found will default to git's own
+## default: ``utf-8``.
+#log_encoding = 'utf-8'
+
+
+## ``publish`` is a callable
+##
+## Sets what ``gitchangelog`` should do with the output generated by
+## the output engine. ``publish`` is a callable taking one argument
+## that is an interator on lines from the output engine.
+##
+## Some helper callable are provided:
+##
+## Available choices are:
+##
+##   - stdout
+##
+##        Outputs directly to standard output
+##        (This is the default)
+##
+##   - FileInsertAtFirstRegexMatch(file, pattern, idx=lamda m: m.start())
+##
+##        Creates a callable that will parse given file for the given
+##        regex pattern and will insert the output in the file.
+##        ``idx`` is a callable that receive the matching object and
+##        must return a integer index point where to insert the
+##        the output in the file. Default is to return the position of
+##        the start of the matched string.
+##
+##   - FileRegexSubst(file, pattern, replace, flags)
+##
+##        Apply a replace inplace in the given file. Your regex pattern must
+##        take care of everything and might be more complex. Check the README
+##        for a complete copy-pastable example.
+##
+# publish = FileInsertIntoFirstRegexMatch(
+#     "CHANGELOG.rst",
+#     r'/(?P<rev>[0-9]+\.[0-9]+(\.[0-9]+)?)\s+\([0-9]+-[0-9]{2}-[0-9]{2}\)\n--+\n/',
+#     idx=lambda m: m.start(1)
+# )
+#publish = stdout
+
+def publish(content):
+    with open("CHANGELOG.rst", "w") as f:
+        for chunk in content:
+            f.write(chunk)
+
+
+## ``revs`` is a list of callable or a list of string
+##
+## callable will be called to resolve as strings and allow dynamical
+## computation of these. The result will be used as revisions for
+## gitchangelog (as if directly stated on the command line). This allows
+## to filter exaclty which commits will be read by gitchangelog.
+##
+## To get a full documentation on the format of these strings, please
+## refer to the ``git rev-list`` arguments. There are many examples.
+##
+## Using callables is especially useful, for instance, if you
+## are using gitchangelog to generate incrementally your changelog.
+##
+## Some helpers are provided, you can use them::
+##
+##   - FileFirstRegexMatch(file, pattern): will return a callable that will
+##     return the first string match for the given pattern in the given file.
+##     If you use named sub-patterns in your regex pattern, it'll output only
+##     the string matching the regex pattern named "rev".
+##
+##   - Caret(rev): will return the rev prefixed by a "^", which is a
+##     way to remove the given revision and all its ancestor.
+##
+## Please note that if you provide a rev-list on the command line, it'll
+## replace this value (which will then be ignored).
+##
+## If empty, then ``gitchangelog`` will act as it had to generate a full
+## changelog.
+##
+## The default is to use all commits to make the changelog.
+
+#revs = ["^1.0.3", ]
+#revs = [
+#    Caret(
+#        FileFirstRegexMatch(
+#            "CHANGELOG.rst",
+#            r"(?P<rev>[0-9]+\.[0-9]+(\.[0-9]+)?)\s+\([0-9]+-[0-9]{2}-[0-9]{2}\)\n--+\n")),
+#    "HEAD"
+#]
+# revs = ['^v0.1.0', ]
+revs = ['^v0.0.0', 'HEAD']
