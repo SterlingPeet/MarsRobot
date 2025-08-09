@@ -1,0 +1,100 @@
+# To install the git pre-commit hook run:
+#   pre-commit install
+# To update the pre-commit hooks run:
+#   pre-commit install-hooks
+
+exclude: ^(templates|\.bumpversion\.cfg)(/|$)
+default_install_hook_types: [pre-commit, pre-merge-commit, pre-push]
+default_stages: [pre-commit, pre-merge-commit, pre-push]
+
+repos:
+- repo: https://github.com/SterlingPeet/git-precommit-hooks
+  rev: v1.0.0
+  hooks:
+  - id: check-git-hooks-installed
+    stages: [pre-commit, pre-merge-commit, pre-push]
+    args: [--hook, 'pre-commit,pre-merge-commit,pre-push']
+- repo: https://github.com/jorisroovers/gitlint
+  rev: v0.19.1
+  hooks:
+  - id: gitlint
+    stages: [commit-msg]
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: check-added-large-files
+    exclude: \.pdf$
+  - id: check-ast
+  - id: check-case-conflict
+  - id: check-docstring-first
+  - id: check-executables-have-shebangs
+  - id: check-shebang-scripts-are-executable
+  - id: check-merge-conflict
+  - id: check-symlinks
+  - id: check-json
+  - id: check-xml
+  - id: check-yaml
+  - id: debug-statements
+  - id: detect-private-key
+  - id: end-of-file-fixer
+  - id: fix-byte-order-marker
+  - id: mixed-line-ending
+  # - id: name-tests-test
+  #   args: [--pytest-test-first]
+  - id: pretty-format-json
+    args: [--autofix]
+  - id: trailing-whitespace
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.14.0
+  hooks:
+  # - id: pretty-format-ini
+  #   args: [--autofix]
+  - id: pretty-format-toml
+    args: [--autofix]
+  - id: pretty-format-yaml
+    args: [--autofix, --indent, '2']
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.12.2
+  hooks:
+  # Run the linter.
+  - id: ruff-check
+    args: [--fix]
+  # Run the formatter.
+  - id: ruff-format
+- repo: https://github.com/pre-commit/mirrors-clang-format
+  rev: v20.1.4
+  hooks:
+  - id: clang-format
+    args: [-style=file]
+    files: \.(cpp|hpp|c|h)$
+    exclude: ^ext/
+- repo: https://github.com/pocc/pre-commit-hooks
+  rev: v1.3.5
+  hooks:
+  - id: clang-tidy
+    stages: [manual]
+    args: [--fix-errors, -p=build-fprime-automatic-native]
+    files: \.(cpp|hpp|c|h)$
+- repo: https://github.com/quantco/pre-commit-mirrors-clang-tidy
+  rev: 16.0.6
+  hooks:
+  - id: clang-tidy-conda
+    stages: [manual]
+    args: [--fix-errors, -p=build-fprime-automatic-native]
+    files: \.(cpp|hpp|c|h)$
+- repo: https://github.com/Yelp/detect-secrets
+  rev: v1.5.0
+  hooks:
+  - id: detect-secrets
+# CMake Formatting/Linting Utility
+- repo: https://github.com/cheshirekow/cmake-format-precommit
+  rev: v0.6.13
+  hooks:
+  - id: cmake-lint
+    exclude: cmake\/version\.cmake$
+  # GitHub Actions Workflow linter
+- repo: https://github.com/rhysd/actionlint
+  rev: v1.7.7
+  hooks:
+  - id: actionlint
